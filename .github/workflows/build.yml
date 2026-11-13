@@ -35,4 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: my-todo-app-apk
-          path: build/apk/*.apk
+          path: |
+        dist/*.apk
+        build/apk/*.apk
+        build/flutter/build/app/outputs/flutter-apk/*.apk
