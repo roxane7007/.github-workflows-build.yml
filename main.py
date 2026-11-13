@@ -8,11 +8,25 @@ def main(page: ft.Page):
     page.window_width = 480
     page.window_height = 750
     page.scroll = ft.ScrollMode.AUTO
-    page.bgcolor = "#F2F2F7"  # 淡いグレーの背景
+    page.bgcolor = "#F2F2F7"
     page.padding = 20
 
     default_categories = ["やることリスト", "買うものリスト", "行きたいところ"]
-    data_file = os.path.join(os.path.expanduser("~"), "my_todo_data.json")
+
+    # --- Android・Mac両対応の安全な保存先決定処理 ---
+    def get_data_file_path():
+        # まずFletが提供するアプリ専用データ領域を確認
+        app_data_dir = os.environ.get("FLET_APP_STORAGE_DATA")
+        if app_data_dir and os.path.exists(app_data_dir):
+            return os.path.join(app_data_dir, "my_todo_data.json")
+        # 次にホームディレクトリ（Mac用）を試す
+        home_dir = os.path.expanduser("~")
+        if home_dir and home_dir != "/" and os.access(home_dir, os.W_OK):
+            return os.path.join(home_dir, "my_todo_data.json")
+        # どちらも使えない場合は現在の作業フォルダに保存
+        return "my_todo_data.json"
+
+    data_file = get_data_file_path()
 
     def load_tasks():
         if os.path.exists(data_file):
@@ -24,8 +38,11 @@ def main(page: ft.Page):
         return []
 
     def save_tasks():
-        with open(data_file, "w", encoding="utf-8") as f:
-            json.dump(tasks, f, ensure_ascii=False, indent=2)
+        try:
+            with open(data_file, "w", encoding="utf-8") as f:
+                json.dump(tasks, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"保存エラー: {e}")
 
     tasks = load_tasks()
 
@@ -34,7 +51,7 @@ def main(page: ft.Page):
         if t["category"] not in saved_categories:
             saved_categories.append(t["category"])
 
-    # --- 入力エリアのパーツ（文字大きめ・角丸・白背景） ---
+    # --- 入力エリアのパーツ ---
     new_task = ft.TextField(
         hint_text="新しいタスクを入力...",
         expand=True,
@@ -78,7 +95,7 @@ def main(page: ft.Page):
             if t["category"] not in current_categories:
                 current_categories.append(t["category"])
 
-        # 【未完了リスト：カテゴリーごとに白いカードにまとめる】
+        # 【未完了リスト】
         for cat in current_categories:
             cat_tasks = [t for t in tasks if t["category"] == cat and not t["completed"]]
             if len(cat_tasks) > 0:
@@ -89,7 +106,6 @@ def main(page: ft.Page):
                 for task in cat_tasks:
                     card_items.append(create_task_row(task))
 
-                # 白い浮き出るカードコンテナ
                 tasks_view.controls.append(
                     ft.Container(
                         content=ft.Column(card_items, spacing=6),
@@ -128,7 +144,6 @@ def main(page: ft.Page):
         save_tasks()
         update_ui()
 
-    # 未完了タスク行（文字大きめ・削除ボタンは控えめな赤字）
     def create_task_row(task):
         def checkbox_changed(e):
             task["completed"] = e.control.value
@@ -153,7 +168,6 @@ def main(page: ft.Page):
             )
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
 
-    # 完了済みタスク行
     def create_completed_row(task):
         def checkbox_changed(e):
             task["completed"] = e.control.value
@@ -213,7 +227,6 @@ def main(page: ft.Page):
         tasks.append({"name": new_task.value, "category": selected_cat, "completed": False})
         save_tasks()
         new_task.value = ""
-        new_task.focus()
         update_ui()
 
     # --- 塗りつぶしの丸い「追加」ボタン ---
@@ -223,7 +236,7 @@ def main(page: ft.Page):
         bgcolor="#007AFF",
         height=50,
         style=ft.ButtonStyle(
-            shape=ft.RoundedRectangleBorder(radius=25)  # しっかり丸いカプセル型
+            shape=ft.RoundedRectangleBorder(radius=25)
         )
     )
 
